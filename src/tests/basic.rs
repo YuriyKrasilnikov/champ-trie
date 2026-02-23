@@ -1,4 +1,4 @@
-use crate::{ChampMap, InsertResult};
+use crate::ChampMap;
 
 #[test]
 fn empty_map() {
@@ -11,8 +11,8 @@ fn empty_map() {
 #[test]
 fn insert_one() {
     let mut map = ChampMap::new();
-    let result = map.insert("hello", 42);
-    assert_eq!(result, InsertResult::Inserted);
+    let old = map.insert("hello", 42);
+    assert_eq!(old, None);
     assert_eq!(map.len(), 1);
     assert!(!map.is_empty());
     assert_ne!(map.adhash(), 0);
@@ -47,8 +47,8 @@ fn insert_multiple() {
 #[test]
 fn overwrite_value() {
     let mut map = ChampMap::new();
-    assert_eq!(map.insert("k", 1), InsertResult::Inserted);
-    assert_eq!(map.insert("k", 2), InsertResult::Updated);
+    assert_eq!(map.insert("k", 1), None);
+    assert_eq!(map.insert("k", 2), Some(1));
     assert_eq!(map.len(), 1);
     assert_eq!(map.get(&"k"), Some(&2));
 }
@@ -72,7 +72,7 @@ fn remove_existing() {
     let mut map = ChampMap::new();
     map.insert("a", 1);
     map.insert("b", 2);
-    assert!(map.remove(&"a"));
+    assert_eq!(map.remove(&"a"), Some(1));
     assert_eq!(map.len(), 1);
     assert_eq!(map.get(&"a"), None);
     assert_eq!(map.get(&"b"), Some(&2));
@@ -82,7 +82,7 @@ fn remove_existing() {
 fn remove_missing() {
     let mut map = ChampMap::new();
     map.insert("a", 1);
-    assert!(!map.remove(&"z"));
+    assert_eq!(map.remove(&"z"), None);
     assert_eq!(map.len(), 1);
 }
 
@@ -92,9 +92,9 @@ fn remove_all() {
     map.insert(1, 10);
     map.insert(2, 20);
     map.insert(3, 30);
-    assert!(map.remove(&1));
-    assert!(map.remove(&2));
-    assert!(map.remove(&3));
+    assert_eq!(map.remove(&1), Some(10));
+    assert_eq!(map.remove(&2), Some(20));
+    assert_eq!(map.remove(&3), Some(30));
     assert!(map.is_empty());
     assert_eq!(map.adhash(), 0);
 }

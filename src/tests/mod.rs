@@ -2,6 +2,7 @@ mod adhash;
 mod basic;
 mod canonical;
 mod collision;
+mod completeness;
 mod nfr;
 mod persistence;
 mod stress;

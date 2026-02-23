@@ -6,6 +6,7 @@ use std::ops;
 
 use safe_bump::Idx;
 
+use crate::ChampCheckpoint;
 use crate::adhash;
 use crate::arena::ChampArena;
 use crate::iter::Iter;
@@ -14,7 +15,6 @@ use crate::ops::get::get_recursive;
 use crate::ops::insert::insert_recursive;
 use crate::ops::remove::{RemoveOutcome, remove_recursive};
 use crate::store::ChampStore;
-use crate::{ChampCheckpoint, InsertResult};
 
 /// Persistent hash map based on a CHAMP trie, single-threaded.
 ///
@@ -121,13 +121,13 @@ impl<K: Hash + Eq, V> ChampMap<K, V> {
 impl<K: Hash + Eq + Clone, V: Hash + Clone> ChampMap<K, V> {
     /// Inserts a key-value pair into the map.
     ///
-    /// Returns [`Inserted`](InsertResult::Inserted) if the key was new, or
-    /// [`Updated`](InsertResult::Updated) if an existing value was replaced.
+    /// Returns `None` if the key was new, or `Some(old_value)` if an existing
+    /// value was replaced.
     ///
     /// # Panics
     ///
     /// Panics if internal arena allocation returns an unexpected `None`.
-    pub fn insert(&mut self, key: K, value: V) -> InsertResult {
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let hash = adhash::hash_one(&key);
         let entry = Entry { hash, key, value };
 
@@ -135,12 +135,10 @@ impl<K: Hash + Eq + Clone, V: Hash + Clone> ChampMap<K, V> {
             let outcome = insert_recursive(&mut self.store, root, entry, 0);
             self.root = Some(outcome.node);
             self.adhash = self.adhash.wrapping_add(outcome.adhash_delta);
-            if outcome.inserted {
+            if outcome.old_value.is_none() {
                 self.size += 1;
-                InsertResult::Inserted
-            } else {
-                InsertResult::Updated
             }
+            outcome.old_value
         } else {
             let value_hash = adhash::hash_one(&entry.value);
             let contribution = adhash::entry_adhash(hash, value_hash);
@@ -160,23 +158,26 @@ impl<K: Hash + Eq + Clone, V: Hash + Clone> ChampMap<K, V> {
             self.root = Some(new_node);
             self.size = 1;
             self.adhash = contribution;
-            InsertResult::Inserted
+            None
         }
     }
 
-    /// Removes a key from the map. Returns `true` if the key was present.
-    pub fn remove(&mut self, key: &K) -> bool {
-        let Some(root) = self.root else {
-            return false;
-        };
+    /// Removes a key from the map. Returns the removed value, or `None` if
+    /// the key was not present.
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        let root = self.root?;
         let hash = adhash::hash_one(key);
         match remove_recursive(&mut self.store, root, hash, key, 0) {
-            RemoveOutcome::NotFound => false,
-            RemoveOutcome::Removed { node, adhash_delta } => {
+            RemoveOutcome::NotFound => None,
+            RemoveOutcome::Removed {
+                node,
+                adhash_delta,
+                removed_value,
+            } => {
                 self.root = node;
                 self.size -= 1;
                 self.adhash = self.adhash.wrapping_sub(adhash_delta);
-                true
+                Some(removed_value)
             }
         }
     }

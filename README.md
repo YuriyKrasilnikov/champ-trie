@@ -61,15 +61,12 @@ use champ_trie::ChampMap;
 
 // Standard mutable API — arena managed internally
 let mut map = ChampMap::new();
-map.insert("alice", 1);
-map.insert("bob", 2);
+assert_eq!(map.insert("alice", 1), None);       // new key → None
+assert_eq!(map.insert("alice", 2), Some(1));     // update → old value
+assert_eq!(map.get(&"alice"), Some(&2));
 
-assert_eq!(map.get(&"alice"), Some(&1));
-assert_eq!(map.get(&"bob"), Some(&2));
-assert_eq!(map.len(), 2);
-
-map.remove(&"alice");
-assert_eq!(map.len(), 1);
+assert_eq!(map.remove(&"alice"), Some(2));        // removed → value
+assert_eq!(map.remove(&"alice"), None);            // missing → None
 
 // O(1) equality via AdHash — canonical form guarantees
 // same contents → same adhash, regardless of insertion order
@@ -90,8 +87,7 @@ use champ_trie::ChampMapSync;
 
 // Thread-safe variant — same API, SharedArena backend
 let mut map = ChampMapSync::new();
-map.insert("key", 42);
-// Send + Sync, wait-free reads
+assert_eq!(map.insert("key", 42), None);  // Send + Sync, wait-free reads
 ```
 
 ## Choosing a backend

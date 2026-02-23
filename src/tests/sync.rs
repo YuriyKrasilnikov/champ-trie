@@ -20,7 +20,7 @@ fn sync_remove() {
     let mut map = ChampMapSync::new();
     map.insert(1, 10);
     map.insert(2, 20);
-    assert!(map.remove(&1));
+    assert_eq!(map.remove(&1), Some(10));
     assert_eq!(map.get(&1), None);
     assert_eq!(map.len(), 1);
 }

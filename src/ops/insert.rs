@@ -14,8 +14,8 @@ pub struct InsertOutcome<K, V> {
     pub node: Idx<Node<K, V>>,
     /// Wrapping `AdHash` delta to add to the parent's adhash.
     pub adhash_delta: u64,
-    /// `true` if a new key was inserted, `false` if an existing value was updated.
-    pub inserted: bool,
+    /// Previous value if the key already existed (`Some(old)`), or `None` if newly inserted.
+    pub old_value: Option<V>,
 }
 
 /// Inserts `entry` into the subtree rooted at `node_idx` via COW path-copy.
@@ -84,11 +84,12 @@ where
 
     if data_map & bit != 0 {
         let pos = node::index(data_map, bit);
-        let (existing_hash, existing_key_eq, old_contrib) = {
+        let (existing_hash, existing_key_eq, old_contrib, old_value) = {
             let e = store.get_entry(node::offset(data_start, pos));
             let eq = e.hash == entry.hash && e.key == entry.key;
             let contrib = adhash::entry_adhash(e.hash, adhash::hash_one(&e.value));
-            (e.hash, eq, contrib)
+            let val = e.value.clone();
+            (e.hash, eq, contrib, val)
         };
 
         if existing_key_eq {
@@ -107,7 +108,7 @@ where
             InsertOutcome {
                 node: new_node,
                 adhash_delta: delta,
-                inserted: false,
+                old_value: Some(old_value),
             }
         } else {
             // Different key at same position → push both into a subtree.
@@ -139,7 +140,7 @@ where
             InsertOutcome {
                 node: new_node,
                 adhash_delta: new_contrib,
-                inserted: true,
+                old_value: None,
             }
         }
     } else if node_map & bit != 0 {
@@ -162,7 +163,7 @@ where
         InsertOutcome {
             node: new_node,
             adhash_delta: outcome.adhash_delta,
-            inserted: outcome.inserted,
+            old_value: outcome.old_value,
         }
     } else {
         // Position empty → add inline entry.
@@ -182,7 +183,7 @@ where
         InsertOutcome {
             node: new_node,
             adhash_delta: new_contrib,
-            inserted: true,
+            old_value: None,
         }
     }
 }
@@ -208,11 +209,12 @@ where
 
     // Search for existing key.
     for i in 0..len {
-        let (key_eq, old_contrib) = {
+        let (key_eq, old_contrib, old_val) = {
             let e = store.get_entry(node::offset(entries_start, i));
             let eq = e.key == entry.key;
             let contrib = adhash::entry_adhash(e.hash, adhash::hash_one(&e.value));
-            (eq, contrib)
+            let val = e.value.clone();
+            (eq, contrib, val)
         };
         if key_eq {
             let new_contrib = adhash::entry_adhash(entry.hash, adhash::hash_one(&entry.value));
@@ -228,7 +230,7 @@ where
             return InsertOutcome {
                 node: new_node,
                 adhash_delta: delta,
-                inserted: false,
+                old_value: Some(old_val),
             };
         }
     }
@@ -253,7 +255,7 @@ where
     InsertOutcome {
         node: new_node,
         adhash_delta: new_contrib,
-        inserted: true,
+        old_value: None,
     }
 }
 

@@ -42,15 +42,6 @@ mod tests;
 pub use map::ChampMap;
 pub use map_sync::ChampMapSync;
 
-/// Result of an [`insert`](ChampMap::insert) operation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsertResult {
-    /// A new key-value pair was inserted.
-    Inserted,
-    /// An existing key's value was updated.
-    Updated,
-}
-
 /// Saved map state for rollback.
 ///
 /// Created by [`ChampMap::checkpoint`] or [`ChampMapSync::checkpoint`].

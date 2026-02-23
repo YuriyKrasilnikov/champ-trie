@@ -18,6 +18,8 @@ pub enum RemoveOutcome<K, V> {
         node: Option<Idx<Node<K, V>>>,
         /// Wrapping `AdHash` delta to subtract from the parent's adhash.
         adhash_delta: u64,
+        /// The value that was removed.
+        removed_value: V,
     },
 }
 
@@ -98,11 +100,12 @@ where
 
     if data_map & bit != 0 {
         let pos = node::index(data_map, bit);
-        let (found, removed_contrib) = {
+        let (found, removed_contrib, removed_val) = {
             let e = store.get_entry(node::offset(data_start, pos));
             let found = e.hash == hash && e.key == *key;
             let contrib = adhash::entry_adhash(e.hash, adhash::hash_one(&e.value));
-            (found, contrib)
+            let val = e.value.clone();
+            (found, contrib, val)
         };
 
         if !found {
@@ -116,6 +119,7 @@ where
             return RemoveOutcome::Removed {
                 node: None,
                 adhash_delta: removed_contrib,
+                removed_value: removed_val,
             };
         }
 
@@ -131,6 +135,7 @@ where
         RemoveOutcome::Removed {
             node: Some(new_node),
             adhash_delta: removed_contrib,
+            removed_value: removed_val,
         }
     } else if node_map & bit != 0 {
         remove_from_child(
@@ -183,6 +188,7 @@ where
         RemoveOutcome::Removed {
             node: new_child,
             adhash_delta,
+            removed_value,
         } => {
             if let Some(child_idx) = new_child {
                 let child_node = *store.get_node(child_idx);
@@ -198,6 +204,7 @@ where
                         child_pos,
                         child_idx,
                         adhash_delta,
+                        removed_value,
                         data_len,
                         children_len,
                     )
@@ -220,6 +227,7 @@ where
                     RemoveOutcome::Removed {
                         node: Some(new_node),
                         adhash_delta,
+                        removed_value,
                     }
                 }
             } else {
@@ -228,6 +236,7 @@ where
                     return RemoveOutcome::Removed {
                         node: None,
                         adhash_delta,
+                        removed_value,
                     };
                 }
                 let children =
@@ -243,6 +252,7 @@ where
                 RemoveOutcome::Removed {
                     node: Some(new_node),
                     adhash_delta,
+                    removed_value,
                 }
             }
         }
@@ -273,6 +283,7 @@ fn inline_child<K, V, S>(
     child_pos: usize,
     child_idx: Idx<Node<K, V>>,
     adhash_delta: u64,
+    removed_value: V,
     data_len: usize,
     children_len: usize,
 ) -> RemoveOutcome<K, V>
@@ -313,6 +324,7 @@ where
     RemoveOutcome::Removed {
         node: Some(new_node),
         adhash_delta,
+        removed_value,
     }
 }
 
@@ -340,11 +352,12 @@ where
 
     let len = usize::from(entries_len);
     for i in 0..len {
-        let (found, removed_contrib) = {
+        let (found, removed_contrib, removed_val) = {
             let e = store.get_entry(node::offset(entries_start, i));
             let found = e.key == *key;
             let contrib = adhash::entry_adhash(e.hash, adhash::hash_one(&e.value));
-            (found, contrib)
+            let val = e.value.clone();
+            (found, contrib, val)
         };
 
         if !found {
@@ -371,6 +384,7 @@ where
             return RemoveOutcome::Removed {
                 node: Some(new_node),
                 adhash_delta: removed_contrib,
+                removed_value: removed_val,
             };
         }
 
@@ -385,6 +399,7 @@ where
         return RemoveOutcome::Removed {
             node: Some(new_node),
             adhash_delta: removed_contrib,
+            removed_value: removed_val,
         };
     }
 

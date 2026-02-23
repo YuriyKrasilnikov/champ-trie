@@ -14,7 +14,7 @@ fn thousand_entries() {
     }
 
     for i in 0_u64..1000 {
-        assert!(map.remove(&i), "failed to remove key {i}");
+        assert!(map.remove(&i).is_some(), "failed to remove key {i}");
     }
     assert!(map.is_empty());
     assert_eq!(map.adhash(), 0);
@@ -48,7 +48,7 @@ fn interleaved_operations() {
     }
     // Remove odd keys.
     for i in (1_u64..200).step_by(2) {
-        assert!(map.remove(&i));
+        assert!(map.remove(&i).is_some());
     }
     assert_eq!(map.len(), 100);
     for i in (0_u64..200).step_by(2) {

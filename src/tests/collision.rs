@@ -67,7 +67,7 @@ fn remove_from_collision() {
     map.insert(k2.clone(), 20);
     map.insert(k3.clone(), 30);
 
-    assert!(map.remove(&k2));
+    assert_eq!(map.remove(&k2), Some(20));
     assert_eq!(map.len(), 2);
     assert_eq!(map.get(&k1), Some(&10));
     assert_eq!(map.get(&k2), None);
