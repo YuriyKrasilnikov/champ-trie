@@ -39,7 +39,14 @@ where
             children_start,
             adhash,
         } => insert_into_inner(
-            store, data_map, node_map, data_start, children_start, adhash, entry, shift,
+            store,
+            data_map,
+            node_map,
+            data_start,
+            children_start,
+            adhash,
+            entry,
+            shift,
         ),
         Node::Collision {
             hash: node_hash,
@@ -97,23 +104,27 @@ where
                 children_start,
                 adhash: adhash.wrapping_add(delta),
             });
-            InsertOutcome { node: new_node, adhash_delta: delta, inserted: false }
+            InsertOutcome {
+                node: new_node,
+                adhash_delta: delta,
+                inserted: false,
+            }
         } else {
             // Different key at same position → push both into a subtree.
             let existing_cloned = clone_entry(store, node::offset(data_start, pos));
             let new_contrib = adhash::entry_adhash(entry.hash, adhash::hash_one(&entry.value));
             let _ = existing_hash; // used above for eq check
 
-            let subtree = create_subtree(store, existing_cloned, entry, shift + node::BITS_PER_LEVEL);
+            let subtree =
+                create_subtree(store, existing_cloned, entry, shift + node::BITS_PER_LEVEL);
 
             let new_data_map = data_map & !bit;
             let new_node_map = node_map | bit;
             let child_pos = node::index(new_node_map, bit);
 
             let entries = build_entries_removing(store, data_start, data_len, pos);
-            let children = build_children_inserting(
-                store, children_start, children_len, child_pos, subtree,
-            );
+            let children =
+                build_children_inserting(store, children_start, children_len, child_pos, subtree);
 
             let new_data = alloc_or_sentinel(store.alloc_entries(entries));
             let new_children = store.alloc_children(children).expect("non-empty");
@@ -125,7 +136,11 @@ where
                 children_start: new_children,
                 adhash: adhash.wrapping_add(new_contrib),
             });
-            InsertOutcome { node: new_node, adhash_delta: new_contrib, inserted: true }
+            InsertOutcome {
+                node: new_node,
+                adhash_delta: new_contrib,
+                inserted: true,
+            }
         }
     } else if node_map & bit != 0 {
         // Position has child subtree → recurse.
@@ -133,9 +148,8 @@ where
         let old_child = *store.get_child(node::offset(children_start, child_pos));
         let outcome = insert_recursive(store, old_child, entry, shift + node::BITS_PER_LEVEL);
 
-        let children = build_children_replacing(
-            store, children_start, children_len, child_pos, outcome.node,
-        );
+        let children =
+            build_children_replacing(store, children_start, children_len, child_pos, outcome.node);
         let new_children = store.alloc_children(children).expect("non-empty");
 
         let new_node = store.alloc_node(Node::Inner {
@@ -145,7 +159,11 @@ where
             children_start: new_children,
             adhash: adhash.wrapping_add(outcome.adhash_delta),
         });
-        InsertOutcome { node: new_node, adhash_delta: outcome.adhash_delta, inserted: outcome.inserted }
+        InsertOutcome {
+            node: new_node,
+            adhash_delta: outcome.adhash_delta,
+            inserted: outcome.inserted,
+        }
     } else {
         // Position empty → add inline entry.
         let new_data_map = data_map | bit;
@@ -161,7 +179,11 @@ where
             children_start,
             adhash: adhash.wrapping_add(new_contrib),
         });
-        InsertOutcome { node: new_node, adhash_delta: new_contrib, inserted: true }
+        InsertOutcome {
+            node: new_node,
+            adhash_delta: new_contrib,
+            inserted: true,
+        }
     }
 }
 
@@ -203,13 +225,19 @@ where
                 entries_len,
                 adhash: adhash.wrapping_add(delta),
             });
-            return InsertOutcome { node: new_node, adhash_delta: delta, inserted: false };
+            return InsertOutcome {
+                node: new_node,
+                adhash_delta: delta,
+                inserted: false,
+            };
         }
     }
 
     // Key not found → append.
     let new_contrib = adhash::entry_adhash(entry.hash, adhash::hash_one(&entry.value));
-    let new_len = entries_len.checked_add(1).expect("collision node overflow (>255 entries)");
+    let new_len = entries_len
+        .checked_add(1)
+        .expect("collision node overflow (>255 entries)");
     let mut entries = Vec::with_capacity(len + 1);
     for i in 0..len {
         entries.push(clone_entry(store, node::offset(entries_start, i)));
@@ -222,7 +250,11 @@ where
         entries_len: new_len,
         adhash: adhash.wrapping_add(new_contrib),
     });
-    InsertOutcome { node: new_node, adhash_delta: new_contrib, inserted: true }
+    InsertOutcome {
+        node: new_node,
+        adhash_delta: new_contrib,
+        inserted: true,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +327,11 @@ fn clone_entry<K: Clone, V: Clone, S: ChampStore<K, V>>(
     idx: Idx<Entry<K, V>>,
 ) -> Entry<K, V> {
     let e = store.get_entry(idx);
-    Entry { hash: e.hash, key: e.key.clone(), value: e.value.clone() }
+    Entry {
+        hash: e.hash,
+        key: e.key.clone(),
+        value: e.value.clone(),
+    }
 }
 
 fn build_entries_inserting<K: Clone, V: Clone, S: ChampStore<K, V>>(

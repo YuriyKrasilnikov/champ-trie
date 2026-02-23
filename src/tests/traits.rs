@@ -43,4 +43,3 @@ fn index_missing_panics() {
     let map: ChampMap<i32, i32> = ChampMap::new();
     let _ = map[&999];
 }
-

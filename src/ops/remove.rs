@@ -43,14 +43,30 @@ where
             children_start,
             adhash,
         } => remove_from_inner(
-            store, data_map, node_map, data_start, children_start, adhash, hash, key, shift,
+            store,
+            data_map,
+            node_map,
+            data_start,
+            children_start,
+            adhash,
+            hash,
+            key,
+            shift,
         ),
         Node::Collision {
             hash: node_hash,
             entries_start,
             entries_len,
             adhash,
-        } => remove_from_collision(store, node_hash, entries_start, entries_len, adhash, hash, key),
+        } => remove_from_collision(
+            store,
+            node_hash,
+            entries_start,
+            entries_len,
+            adhash,
+            hash,
+            key,
+        ),
     }
 }
 
@@ -97,7 +113,10 @@ where
 
         // If removing the last entry and there are no children → empty subtree.
         if new_data_map == 0 && node_map == 0 {
-            return RemoveOutcome::Removed { node: None, adhash_delta: removed_contrib };
+            return RemoveOutcome::Removed {
+                node: None,
+                adhash_delta: removed_contrib,
+            };
         }
 
         let entries = build_entries_removing(store, data_start, data_len, pos);
@@ -109,66 +128,124 @@ where
             children_start,
             adhash: adhash.wrapping_sub(removed_contrib),
         });
-        RemoveOutcome::Removed { node: Some(new_node), adhash_delta: removed_contrib }
+        RemoveOutcome::Removed {
+            node: Some(new_node),
+            adhash_delta: removed_contrib,
+        }
     } else if node_map & bit != 0 {
-        let child_pos = node::index(node_map, bit);
-        let old_child = *store.get_child(node::offset(children_start, child_pos));
-        let outcome = remove_recursive(store, old_child, hash, key, shift + node::BITS_PER_LEVEL);
+        remove_from_child(
+            store,
+            data_map,
+            node_map,
+            data_start,
+            children_start,
+            adhash,
+            bit,
+            hash,
+            key,
+            shift,
+            data_len,
+            children_len,
+        )
+    } else {
+        RemoveOutcome::NotFound
+    }
+}
 
-        match outcome {
-            RemoveOutcome::NotFound => RemoveOutcome::NotFound,
-            RemoveOutcome::Removed { node: new_child, adhash_delta } => {
-                if let Some(child_idx) = new_child {
-                    // Child still exists — check if it should be inlined.
-                    let child_node = *store.get_node(child_idx);
-                    if should_inline(&child_node) {
-                        inline_child(
-                            store, data_map, node_map, data_start, children_start,
-                            adhash, bit, child_pos, child_idx, adhash_delta,
-                            data_len, children_len,
-                        )
-                    } else {
-                        // Keep child as subtree, update pointer.
-                        let children = build_children_replacing(
-                            store, children_start, children_len, child_pos, child_idx,
-                        );
-                        let new_children = store.alloc_children(children)
-                            .expect("non-empty");
-                        let new_node = store.alloc_node(Node::Inner {
-                            data_map,
-                            node_map,
-                            data_start,
-                            children_start: new_children,
-                            adhash: adhash.wrapping_sub(adhash_delta),
-                        });
-                        RemoveOutcome::Removed { node: Some(new_node), adhash_delta }
-                    }
+/// Recurses into a child subtree and handles the outcome:
+/// inline, replace pointer, or remove empty child.
+#[allow(clippy::too_many_arguments)]
+fn remove_from_child<K, V, S>(
+    store: &mut S,
+    data_map: u32,
+    node_map: u32,
+    data_start: Idx<Entry<K, V>>,
+    children_start: Idx<Idx<Node<K, V>>>,
+    adhash: u64,
+    bit: u32,
+    hash: u64,
+    key: &K,
+    shift: u32,
+    data_len: usize,
+    children_len: usize,
+) -> RemoveOutcome<K, V>
+where
+    K: Hash + Eq + Clone,
+    V: Hash + Clone,
+    S: ChampStore<K, V>,
+{
+    let child_pos = node::index(node_map, bit);
+    let old_child = *store.get_child(node::offset(children_start, child_pos));
+    let outcome = remove_recursive(store, old_child, hash, key, shift + node::BITS_PER_LEVEL);
+
+    match outcome {
+        RemoveOutcome::NotFound => RemoveOutcome::NotFound,
+        RemoveOutcome::Removed {
+            node: new_child,
+            adhash_delta,
+        } => {
+            if let Some(child_idx) = new_child {
+                let child_node = *store.get_node(child_idx);
+                if should_inline(&child_node) {
+                    inline_child(
+                        store,
+                        data_map,
+                        node_map,
+                        data_start,
+                        children_start,
+                        adhash,
+                        bit,
+                        child_pos,
+                        child_idx,
+                        adhash_delta,
+                        data_len,
+                        children_len,
+                    )
                 } else {
-                    // Child became empty — remove child slot.
-                    let new_node_map = node_map & !bit;
-                    if data_map == 0 && new_node_map == 0 {
-                        return RemoveOutcome::Removed {
-                            node: None,
-                            adhash_delta,
-                        };
-                    }
-                    let children = build_children_removing(
-                        store, children_start, children_len, child_pos,
+                    let children = build_children_replacing(
+                        store,
+                        children_start,
+                        children_len,
+                        child_pos,
+                        child_idx,
                     );
-                    let new_children = alloc_or_sentinel(store.alloc_children(children));
+                    let new_children = store.alloc_children(children).expect("non-empty");
                     let new_node = store.alloc_node(Node::Inner {
                         data_map,
-                        node_map: new_node_map,
+                        node_map,
                         data_start,
                         children_start: new_children,
                         adhash: adhash.wrapping_sub(adhash_delta),
                     });
-                    RemoveOutcome::Removed { node: Some(new_node), adhash_delta }
+                    RemoveOutcome::Removed {
+                        node: Some(new_node),
+                        adhash_delta,
+                    }
+                }
+            } else {
+                let new_node_map = node_map & !bit;
+                if data_map == 0 && new_node_map == 0 {
+                    return RemoveOutcome::Removed {
+                        node: None,
+                        adhash_delta,
+                    };
+                }
+                let children =
+                    build_children_removing(store, children_start, children_len, child_pos);
+                let new_children = alloc_or_sentinel(store.alloc_children(children));
+                let new_node = store.alloc_node(Node::Inner {
+                    data_map,
+                    node_map: new_node_map,
+                    data_start,
+                    children_start: new_children,
+                    adhash: adhash.wrapping_sub(adhash_delta),
+                });
+                RemoveOutcome::Removed {
+                    node: Some(new_node),
+                    adhash_delta,
                 }
             }
         }
-    } else {
-        RemoveOutcome::NotFound
     }
 }
 
@@ -176,9 +253,9 @@ where
 /// should be inlined back into the parent.
 const fn should_inline<K, V>(node: &Node<K, V>) -> bool {
     match node {
-        Node::Inner { data_map, node_map, .. } => {
-            data_map.is_power_of_two() && *node_map == 0
-        }
+        Node::Inner {
+            data_map, node_map, ..
+        } => data_map.is_power_of_two() && *node_map == 0,
         Node::Collision { .. } => false,
     }
 }
@@ -217,10 +294,13 @@ where
     let new_node_map = node_map & !bit;
     let data_insert_at = node::index(new_data_map, bit);
 
-    let entries = build_entries_inserting(store, data_start, data_len, data_insert_at, inlined_entry);
+    let entries =
+        build_entries_inserting(store, data_start, data_len, data_insert_at, inlined_entry);
     let children = build_children_removing(store, children_start, children_len, child_pos);
 
-    let new_data = store.alloc_entries(entries).expect("non-empty after inline");
+    let new_data = store
+        .alloc_entries(entries)
+        .expect("non-empty after inline");
     let new_children = alloc_or_sentinel(store.alloc_children(children));
 
     let new_node = store.alloc_node(Node::Inner {
@@ -230,7 +310,10 @@ where
         children_start: new_children,
         adhash: adhash.wrapping_sub(adhash_delta),
     });
-    RemoveOutcome::Removed { node: Some(new_node), adhash_delta }
+    RemoveOutcome::Removed {
+        node: Some(new_node),
+        adhash_delta,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -273,10 +356,8 @@ where
             // Promote it to a regular inner node at this depth.
             let other = 1 - i;
             let remaining = clone_entry(store, node::offset(entries_start, other));
-            let remaining_contrib = adhash::entry_adhash(
-                remaining.hash,
-                adhash::hash_one(&remaining.value),
-            );
+            let remaining_contrib =
+                adhash::entry_adhash(remaining.hash, adhash::hash_one(&remaining.value));
             let frag = node::fragment(remaining.hash, 0);
             let bit = node::mask(frag);
             let data_start = store.alloc_entries([remaining]).expect("single entry");
@@ -287,7 +368,10 @@ where
                 children_start: Idx::from_raw(0),
                 adhash: remaining_contrib,
             });
-            return RemoveOutcome::Removed { node: Some(new_node), adhash_delta: removed_contrib };
+            return RemoveOutcome::Removed {
+                node: Some(new_node),
+                adhash_delta: removed_contrib,
+            };
         }
 
         let entries = build_entries_removing(store, entries_start, len, i);
@@ -298,7 +382,10 @@ where
             entries_len: entries_len - 1,
             adhash: adhash.wrapping_sub(removed_contrib),
         });
-        return RemoveOutcome::Removed { node: Some(new_node), adhash_delta: removed_contrib };
+        return RemoveOutcome::Removed {
+            node: Some(new_node),
+            adhash_delta: removed_contrib,
+        };
     }
 
     RemoveOutcome::NotFound
@@ -313,7 +400,11 @@ fn clone_entry<K: Clone, V: Clone, S: ChampStore<K, V>>(
     idx: Idx<Entry<K, V>>,
 ) -> Entry<K, V> {
     let e = store.get_entry(idx);
-    Entry { hash: e.hash, key: e.key.clone(), value: e.value.clone() }
+    Entry {
+        hash: e.hash,
+        key: e.key.clone(),
+        value: e.value.clone(),
+    }
 }
 
 fn build_entries_inserting<K: Clone, V: Clone, S: ChampStore<K, V>>(

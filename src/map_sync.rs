@@ -12,7 +12,7 @@ use crate::iter::Iter;
 use crate::node::{self, Entry, Node};
 use crate::ops::get::get_recursive;
 use crate::ops::insert::insert_recursive;
-use crate::ops::remove::{remove_recursive, RemoveOutcome};
+use crate::ops::remove::{RemoveOutcome, remove_recursive};
 use crate::store::ChampStore;
 use crate::{ChampCheckpoint, InsertResult};
 
@@ -141,7 +141,9 @@ impl<K: Hash + Eq + Clone, V: Hash + Clone> ChampMapSync<K, V> {
             let contribution = adhash::entry_adhash(hash, value_hash);
             let frag = node::fragment(hash, 0);
             let bit = node::mask(frag);
-            let data_start = self.store.alloc_entries(std::iter::once(entry))
+            let data_start = self
+                .store
+                .alloc_entries(std::iter::once(entry))
                 .expect("single entry");
             let new_node = self.store.alloc_node(Node::Inner {
                 data_map: bit,
@@ -238,4 +240,3 @@ impl<'a, K, V> IntoIterator for &'a ChampMapSync<K, V> {
         self.iter()
     }
 }
-

@@ -1,5 +1,5 @@
-use crate::adhash::{entry_adhash, hash_one};
 use crate::ChampMap;
+use crate::adhash::{entry_adhash, hash_one};
 
 /// φ(∅) = 0.
 #[test]

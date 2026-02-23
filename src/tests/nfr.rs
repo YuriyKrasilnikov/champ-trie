@@ -19,9 +19,7 @@ fn measure_ns<F: FnMut()>(mut f: F) -> u64 {
 
 /// Runs `f` multiple times and returns median time in nanoseconds.
 fn median_ns<F: FnMut()>(iterations: u32, mut f: F) -> u64 {
-    let mut times: Vec<u64> = (0..iterations)
-        .map(|_| measure_ns(&mut f))
-        .collect();
+    let mut times: Vec<u64> = (0..iterations).map(|_| measure_ns(&mut f)).collect();
     times.sort_unstable();
     times[times.len() / 2]
 }
@@ -45,12 +43,12 @@ macro_rules! nfr_tests {
                 let small = build_map::<$map_type>(1_000);
                 let large = build_map::<$map_type>(100_000);
 
-                let t_small = median_ns(5, || {
+                let t_small = median_ns(11, || {
                     for i in 0_u64..1_000 {
                         black_box(small.get(&i));
                     }
                 });
-                let t_large = median_ns(5, || {
+                let t_large = median_ns(11, || {
                     for i in 0_u64..1_000 {
                         black_box(large.get(&i));
                     }
@@ -71,7 +69,7 @@ macro_rules! nfr_tests {
             fn insert_sublinear() {
                 let mut small = build_map::<$map_type>(1_000);
                 let cp_small = small.checkpoint();
-                let t_small = median_ns(5, || {
+                let t_small = median_ns(11, || {
                     for i in 1_000_u64..2_000 {
                         small.insert(i, i);
                     }
@@ -81,7 +79,7 @@ macro_rules! nfr_tests {
 
                 let mut large = build_map::<$map_type>(100_000);
                 let cp_large = large.checkpoint();
-                let t_large = median_ns(5, || {
+                let t_large = median_ns(11, || {
                     for i in 100_000_u64..101_000 {
                         large.insert(i, i);
                     }
@@ -103,7 +101,7 @@ macro_rules! nfr_tests {
             fn remove_sublinear() {
                 let mut small = build_map::<$map_type>(2_000);
                 let cp_small = small.checkpoint();
-                let t_small = median_ns(5, || {
+                let t_small = median_ns(11, || {
                     for i in 0_u64..1_000 {
                         small.remove(&i);
                     }
@@ -113,7 +111,7 @@ macro_rules! nfr_tests {
 
                 let mut large = build_map::<$map_type>(101_000);
                 let cp_large = large.checkpoint();
-                let t_large = median_ns(5, || {
+                let t_large = median_ns(11, || {
                     for i in 0_u64..1_000 {
                         large.remove(&i);
                     }
@@ -259,14 +257,14 @@ macro_rules! nfr_tests {
                 let small = build_map::<$map_type>(10_000);
                 let large = build_map::<$map_type>(100_000);
 
-                let t_small = median_ns(5, || {
+                let t_small = median_ns(11, || {
                     let mut count = 0_u64;
                     for (k, v) in small.iter() {
                         count += black_box(*k) + black_box(*v);
                     }
                     black_box(count);
                 });
-                let t_large = median_ns(5, || {
+                let t_large = median_ns(11, || {
                     let mut count = 0_u64;
                     for (k, v) in large.iter() {
                         count += black_box(*k) + black_box(*v);
