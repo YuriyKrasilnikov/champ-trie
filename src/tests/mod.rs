@@ -1,0 +1,9 @@
+mod adhash;
+mod basic;
+mod canonical;
+mod collision;
+mod nfr;
+mod persistence;
+mod stress;
+mod sync;
+mod traits;

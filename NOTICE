@@ -1,0 +1,10 @@
+champ-trie
+Copyright 2026 Yuriy Krasilnikov
+
+Persistent hash map based on Compressed Hash-Array Mapped Prefix-tree (CHAMP).
+Canonical form. O(1) structural equality via AdHash. COW structural sharing.
+
+References:
+  Steindorfer & Vinju, 2015 — "Optimizing Hash-Array Mapped Tries
+    for Fast and Lean Immutable JVM Collections", OOPSLA 2015
+  Bagwell, 2001 — "Ideal Hash Trees"

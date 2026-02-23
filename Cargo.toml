@@ -1,0 +1,25 @@
+[package]
+name = "champ-trie"
+version = "0.1.0"
+authors = ["Yuriy Krasilnikov <YuriyKrasilnikov@users.noreply.github.com>"]
+edition = "2024"
+rust-version = "1.93"
+license = "Apache-2.0"
+repository = "https://github.com/YuriyKrasilnikov/champ-trie"
+homepage = "https://github.com/YuriyKrasilnikov/champ-trie"
+documentation = "https://docs.rs/champ-trie"
+readme = "README.md"
+description = "Persistent hash map based on CHAMP — canonical form, O(1) structural equality via AdHash, COW structural sharing"
+categories = ["data-structures"]
+keywords = ["persistent", "hashmap", "champ", "canonical", "immutable"]
+
+[dependencies]
+safe-bump = "0.2.1"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+nursery = "deny"
